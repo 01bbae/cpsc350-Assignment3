@@ -19,29 +19,41 @@ IO::~IO(){
 
 void IO::runProgram(){
   string input = "yes";
-  GenStack<Delimiter*>* g= new GenStack<Delimiter*>(10);
   while(input == "yes"){
+    GenStack<Delimiter*>* g= new GenStack<Delimiter*>(10);
+    GenStack<Delimiter*>* oppo= new GenStack<Delimiter*>(10);
   try{
     ifs.open(filename);
     ifs.exceptions( ifstream::badbit );
-
-      string buffer;
+    string str;
       int line = 0;
-      while(ifs>>buffer){
+      while(getline(ifs,str)){
         line++;
-        for(int i=0;i<buffer.size();++i){
-          if(buffer[i]=='('){
+        for(int i=0;i<str.size();++i){
+          if(str[i]=='('){
             g->push(new Delimiter('(',line));
-          }else if(buffer[i]==')'){
-            g->push(new Delimiter(')',line));
-          }else if(buffer[i]=='{'){
+          }else if(str[i]==')'){
+            if(g->peek()->getOpposite() == ')'){
+              g->pop();
+            }else{
+              oppo->push(new Delimiter(')',line));
+            }
+          }else if(str[i]=='{'){
             g->push(new Delimiter('{',line));
-          }else if(buffer[i]=='}'){
-            g->push(new Delimiter('}',line));
-          }else if(buffer[i]=='['){
+          }else if(str[i]=='}'){
+            if(g->peek()->getOpposite() == '}'){
+              g->pop();
+            }else{
+              oppo->push(new Delimiter('}',line));
+            }
+          }else if(str[i]=='['){
             g->push(new Delimiter('[',line));
-          }else if(buffer[i]==']'){
-            g->push(new Delimiter(']',line));
+          }else if(str[i]==']'){
+            if(g->peek()->getOpposite() == ']'){
+              g->pop();
+            }else{
+              oppo->push(new Delimiter(']',line));
+            }
           }
         }
       }
@@ -49,33 +61,38 @@ void IO::runProgram(){
     cout <<"error opening/reading file" << endl;
   }
 
+  // while(!g->isEmpty()){
+  //   cout << g->peek()->getDelimiter() << g->peek()->getLine() << endl;
+  //   g->pop();
+  // }
+
   try{
-      GenStack<Delimiter*>* c= new GenStack<Delimiter*>(g->getSize()/2);
-      for(int i=0;i<g->getSize()/2;++i){
-        c->push(g->pop());
-      }
-      if(g->getSize()%2==0){ //even number of delimiters
+    GenStack<Delimiter*>* c= new GenStack<Delimiter*>(10);
+    while(!oppo->isEmpty()){
+      c->push(oppo->pop());
+    }
+      if(g->getSize()==c->getSize()){ //even number of delimiters check if there are any mismatched
         while(!g->isEmpty()){
-          if(g->peek()->getDelimiter() == c->peek()->getDelimiter()){
+          if(g->peek()->getDelimiter() == c->peek()->getDelimiter()){ //the ends are the same
             g->pop();
             c->pop();
 
           }else{
-            if(g->peek()->getDelimiter() != c->peek()->getDelimiter()){
-              cout << "Line " << c->peek()->getLine() << ": expected " << c->peek()->getOpposite() << " and found " << c->peek()->getDelimiter() << endl;
+            if(g->peek()->getDelimiter() != c->peek()->getDelimiter()){ //
+              cout << "Line " << g->peek()->getLine() << ": expected " << g->peek()->getOpposite() << " and found " << c->peek()->getDelimiter() << endl;
               exit(EXIT_FAILURE);
             }
           }
         }
-      }else{
-        while(!c->isEmpty()){
+      }else{ //odd number of delimiters check which one needs adding
+        while(!c->isEmpty()&&!g->isEmpty()){
           if(g->peek()->getDelimiter() == c->peek()->getDelimiter()){
             g->pop();
             c->pop();
 
           }else{
             if(g->peek()->getDelimiter() != c->peek()->getDelimiter()){
-              cout << "Line " << c->peek()->getLine() << ": missing " << g->peek()->getOpposite() << endl;
+              cout << "Line " << g->peek()->getLine() << ": missing " << g->peek()->getOpposite() << endl;
               exit(EXIT_FAILURE);
             }
           }
@@ -85,18 +102,19 @@ void IO::runProgram(){
       }
 
       cout << "all good!" <<endl;
+      ifs.close();
       cout << "continue? (yes/no)" << endl;
       cin >> input;
-      ifs.close();
-      delete g;
-      delete c;
       if(input =="yes"){
         cout << "enter filename: " << endl;
         cin >> filename;
+        runProgram();
       }
+      delete c;
     }catch(const char* msg){
       cout << msg << endl;
     }
-   input = "no";
+    delete g;
+    delete oppo;
   }
 }
